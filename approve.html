@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIFF App ระบบอนุมัติ</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Sarabun -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- LIFF SDK -->
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+    <header class="bg-[#06C755] text-white p-4 shadow-md">
+        <div class="container mx-auto flex items-center">
+            <h1 class="text-2xl font-bold">ระบบอนุมัติ LIFF App</h1>
+        </div>
+    </header>
+
+    <main id="app-content" class="flex-grow container mx-auto p-4 flex flex-col items-center justify-center">
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md text-center">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">กำลังโหลดข้อมูล...</h2>
+            <div id="profile-info" class="hidden">
+                <img id="profile-picture" class="w-24 h-24 rounded-full mx-auto mb-4 border-2 border-[#06C755]" alt="รูปโปรไฟล์">
+                <p class="text-lg font-medium text-gray-800">สวัสดีครับ, <span id="display-name"></span>!</p>
+                <p class="text-sm text-gray-500 mb-6">User ID: <span id="user-id"></span></p>
+            </div>
+
+            <div id="request-details-section" class="hidden mt-6 text-left border-t pt-4 border-gray-200">
+                <h3 class="text-lg font-bold mb-3 text-gray-700">รายละเอียดคำขออนุมัติ</h3>
+                <div id="request-details" class="space-y-2 text-gray-600">
+                    <!-- รายละเอียดคำขอจะถูกแสดงที่นี่ -->
+                </div>
+                <p id="status-message" class="text-center mt-4 font-bold text-lg text-blue-600 hidden"></p>
+            </div>
+
+            <div id="action-buttons" class="mt-8 flex justify-center space-x-4 hidden">
+                <button id="approve-btn" class="bg-[#06C755] hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+                    อนุมัติ
+                </button>
+                <button id="reject-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+                    ปฏิเสธ
+                </button>
+            </div>
+            <div id="loading-spinner" class="hidden mt-8">
+                <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-[#06C755] mx-auto"></div>
+                <p class="mt-2 text-gray-600">กำลังดำเนินการ...</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-100 text-gray-600 p-4 text-center">
+        <p>&copy; 2025 LINE Approval System. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // LIFF ID ของคุณ (แทนที่ด้วย LIFF ID ที่ได้จาก LINE Developers Console)
+        // Your LIFF ID (replace with the LIFF ID obtained from LINE Developers Console)
+        // หมายเหตุ: LIFF ID ไม่ใช่ Channel ID หรือ Channel Secret
+        // คุณจะพบ LIFF ID ได้จาก LINE Developers Console -> LINE Login Channel ของคุณ -> แท็บ LIFF -> LIFF ID
+        const LIFF_ID = "YOUR_LIFF_ID"; 
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // เริ่มต้น LIFF SDK
+            // Initialize LIFF SDK
+            liff.init({
+                liffId: LIFF_ID
+            })
+            .then(() => {
+                // ตรวจสอบว่าผู้ใช้ล็อกอินอยู่หรือไม่
+                // Check if the user is logged in
+                if (!liff.isLoggedIn()) {
+                    // หากยังไม่ได้ล็อกอิน ให้ล็อกอินผ่าน LINE
+                    // If not logged in, initiate LINE login
+                    liff.login();
+                } else {
+                    // หากล็อกอินแล้ว ให้เริ่มต้นแอป LIFF
+                    // If logged in, initialize the LIFF app
+                    initializeLiffApp();
+                }
+            })
+            .catch((err) => {
+                // จัดการข้อผิดพลาดในการเริ่มต้น LIFF
+                // Handle LIFF initialization errors
+                console.error("LIFF initialization failed", err);
+                document.getElementById('app-content').innerHTML = '<p class="text-red-500 text-center">เกิดข้อผิดพลาดในการโหลดระบบ. กรุณาลองใหม่อีกครั้ง.</p>';
+            });
+        });
+
+        async function initializeLiffApp() {
+            try {
+                // แสดงส่วนข้อมูลโปรไฟล์
+                // Show profile info section
+                document.getElementById('profile-info').classList.remove('hidden');
+                document.querySelector('h2').textContent = 'ข้อมูลผู้ใช้งาน';
+
+                // ดึงข้อมูลโปรไฟล์ผู้ใช้งาน LINE
+                // Get LINE user profile
+                const profile = await liff.getProfile();
+                const approverLineUserId = profile.userId;
+                const approverName = profile.displayName;
+                const profilePictureUrl = profile.pictureUrl || 'https://placehold.co/96x96/cccccc/333333?text=No+Pic'; // Placeholder if no picture
+
+                document.getElementById('profile-picture').src = profilePictureUrl;
+                document.getElementById('display-name').textContent = approverName;
+                document.getElementById('user-id').textContent = approverLineUserId;
+
+                // 1. ดึง requestId จาก URL
+                // 1. Get requestId from URL
+                const params = new URLSearchParams(liff.getUrl().split('?')[1]); 
+                const requestId = params.get('requestId');
+
+                if (!requestId) {
+                    document.getElementById('request-details-section').classList.remove('hidden');
+                    document.getElementById('request-details').innerHTML = '<p class="text-red-500">ไม่พบรหัสคำขออนุมัติใน URL.</p>';
+                    return;
+                }
+
+                // แสดงส่วนรายละเอียดคำขอ
+                // Show request details section
+                document.getElementById('request-details-section').classList.remove('hidden');
+
+                // 3. ดึงรายละเอียดคำขออนุมัติจาก Backend
+                // คุณจะต้องมี API Endpoint ใน Backend สำหรับดึงรายละเอียดคำขอ
+                // 3. Fetch approval request details from Backend
+                // You will need an API Endpoint in your Backend to fetch request details
+                const response = await fetch(`/api/get_request_details?requestId=${requestId}&approverId=${approverLineUserId}`);
+                const requestDetails = await response.json();
+
+                if (response.ok && requestDetails) {
+                    // 4. แสดงผลรายละเอียดคำขอใน HTML
+                    // 4. Display request details in HTML
+                    document.getElementById('request-details').innerHTML = `
+                        <p><strong>ประเภท:</strong> ${requestDetails.request_type || 'N/A'}</p>
+                        <p><strong>ผู้ขอ:</strong> ${requestDetails.requester_name || 'N/A'}</p>
+                        <p><strong>รายละเอียด:</strong> ${requestDetails.details || 'N/A'}</p>
+                        ${requestDetails.amount ? `<p><strong>จำนวนเงิน:</strong> ${requestDetails.amount} บาท</p>` : ''}
+                        <p><strong>สถานะ:</strong> <span class="font-bold text-blue-700">${requestDetails.status || 'N/A'}</span></p>
+                    `;
+
+                    // 5. ตั้งค่าปุ่มอนุมัติ/ปฏิเสธ
+                    // 5. Set up approve/reject buttons
+                    if (requestDetails.status === 'pending') {
+                        document.getElementById('action-buttons').classList.remove('hidden');
+                        document.getElementById('approve-btn').onclick = () => sendApprovalAction(requestId, 'approve', approverLineUserId, approverName);
+                        document.getElementById('reject-btn').onclick = () => sendApprovalAction(requestId, 'reject', approverLineUserId, approverName);
+                    } else {
+                        document.getElementById('status-message').classList.remove('hidden');
+                        document.getElementById('status-message').textContent = `คำขอถูก ${requestDetails.status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธแล้ว'}`;
+                    }
+
+                } else {
+                    document.getElementById('request-details').innerHTML = '<p class="text-red-500">ไม่สามารถดึงรายละเอียดคำขอได้ หรือคำขอไม่ถูกต้อง.</p>';
+                }
+
+            } catch (error) {
+                console.error("Error in LIFF app:", error);
+                document.getElementById('app-content').innerHTML = '<p class="text-red-500 text-center">เกิดข้อผิดพลาดในการประมวลผล. กรุณาลองใหม่อีกครั้ง.</p>';
+            }
+        }
+
+        async function sendApprovalAction(requestId, action, approverLineUserId, approverName) {
+            try {
+                // แสดงสถานะกำลังโหลด
+                // Show loading state
+                document.getElementById('action-buttons').classList.add('hidden');
+                document.getElementById('loading-spinner').classList.remove('hidden');
+                document.getElementById('status-message').classList.add('hidden'); // ซ่อนข้อความสถานะเดิม
+
+                // เรียก API Backend เพื่อประมวลผลการอนุมัติ/ปฏิเสธ
+                // Call Backend API to process approval/rejection
+                const response = await fetch('/api/process_approval', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        requestId: requestId,
+                        action: action,
+                        approverLineUserId: approverLineUserId,
+                        approverName: approverName
+                    })
+                });
+
+                if (response.ok) {
+                    // const result = await response.json(); // หาก Backend ส่งข้อมูลกลับมา
+                    document.getElementById('loading-spinner').classList.add('hidden');
+                    document.getElementById('status-message').classList.remove('hidden');
+                    document.getElementById('status-message').textContent = `ดำเนินการ ${action === 'approve' ? 'อนุมัติ' : 'ปฏิเสธ'} คำขอสำเร็จ!`;
+                    document.getElementById('status-message').classList.add(action === 'approve' ? 'text-green-600' : 'text-red-600');
+                    // (ทางเลือก) ปิดหน้า LIFF หลังจากดำเนินการเสร็จ
+                    // Optional: Close LIFF window after successful action
+                    // liff.closeWindow();
+                } else {
+                    const errorData = await response.json();
+                    document.getElementById('loading-spinner').classList.add('hidden');
+                    document.getElementById('status-message').classList.remove('hidden');
+                    document.getElementById('status-message').textContent = `เกิดข้อผิดพลาด: ${errorData.message || 'ไม่สามารถดำเนินการได้'}`;
+                    document.getElementById('status-message').classList.add('text-red-500');
+                    document.getElementById('action-buttons').classList.remove('hidden'); // แสดงปุ่มอีกครั้งหากมีข้อผิดพลาด
+                }
+            } catch (error) {
+                console.error("Error sending action:", error);
+                document.getElementById('loading-spinner').classList.add('hidden');
+                document.getElementById('status-message').classList.remove('hidden');
+                document.getElementById('status-message').textContent = 'เกิดข้อผิดพลาดในการเชื่อมต่อ. กรุณาลองใหม่อีกครั้ง.';
+                document.getElementById('status-message').classList.add('text-red-500');
+                document.getElementById('action-buttons').classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
