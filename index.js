@@ -120,7 +120,7 @@ app.post('/webhook', async (req, res) => {
 
         // ตรวจสอบว่าเป็น Event ประเภทข้อความและมี userId
          if (event.type === 'message' && event.source && event.source.userId) {
-            const userId = event.source.userId;
+            const userId = event.source.groupId || event.source.userId; // ใช้ groupId ถ้ามี ไม่งั้นใช้ userId
             console.log(`Received message from userId: ${userId}`);
 
             // ข้อมูลการลา (สมมติว่าคุณได้รับข้อมูลเหล่านี้จาก Event หรือจากระบบอื่น)
