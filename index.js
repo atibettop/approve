@@ -273,7 +273,7 @@ app.post('/webhook', async (req, res) => {
         // เพิ่มการจัดการ Event ประเภทอื่นๆ เช่น postback, follow, unfollow, join, leave
         else if (event.type === 'postback') {
             console.log('Postback event received:', event.postback.data);
-            const userId = event.source.userId;
+            const userId = event.source.groupId || event.source.userId;
             const data = event.postback.data;
 
             // แยกวิเคราะห์ข้อมูล postback
